@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from pydantic import BaseModel  
 from dotenv import load_dotenv
 from openai import OpenAI
+from app.rag import load_documents
 
 import os
 
@@ -12,10 +13,8 @@ client = OpenAI(
     base_url="https://api.groq.com/openai/v1"
 )
 
-API_KEY = os.getenv("OPENAI_API_KEY")
-
 app = FastAPI()
-name = "Farhaan"
+documents = load_documents()
 
 class ChatRequest(BaseModel):
     message: str
@@ -30,11 +29,22 @@ def greet(name):
 
 @app.post("/chat")
 def chat(request: ChatRequest):
-    try:
 
+    try:
         response = client.chat.completions.create(
             model="llama-3.1-8b-instant",
             messages=[
+                {
+                    "role": "system",
+                    "content": f"""
+You are a customer support assistant.
+
+Answer ONLY using the company policy below.
+
+Company Policy:
+{documents}
+"""
+                },
                 {
                     "role": "user",
                     "content": request.message
@@ -45,8 +55,8 @@ def chat(request: ChatRequest):
         return {
             "reply": response.choices[0].message.content
         }
-    
+
     except Exception as e:
-        return{
+        return {
             "error": str(e)
         }
