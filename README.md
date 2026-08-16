@@ -1,14 +1,22 @@
 # AI Customer Support Chatbot
 
-An AI-powered customer support chatbot built with FastAPI, Python, and Retrieval-Augmented Generation (RAG).
+An AI-powered customer support chatbot built with FastAPI and Groq LLM.
 
-## Tech Stack
+## Features
 
-- Python
-- FastAPI
-- FAISS (coming soon)
-- OpenAI-compatible LLM (coming soon)
+- REST API with FastAPI
+- Pydantic request validation
+- Groq LLM integration
+- Secure API key management with `.env`
+- Company policy knowledge base (RAG foundation)
 
-## Status
+## Project Status
 
 🚧 Work in Progress
+
+Next milestones:
+- Document chunking
+- Embeddings
+- FAISS vector search
+- Full RAG pipeline
+- WhatsApp integration
