@@ -5,6 +5,7 @@ from fastapi import FastAPI
 from fastapi.responses import StreamingResponse
 from openai import OpenAI
 from pydantic import BaseModel
+from sqlalchemy import text
 
 from app.database import Base, SessionLocal, engine
 from app.models import Message
@@ -25,37 +26,21 @@ client = OpenAI(
 
 app = FastAPI()
 
-# -------------------------
-# Load RAG once
-# -------------------------
-
 documents = load_documents()
 chunks = split_into_chunks(documents)
 embeddings = create_embeddings(chunks)
 index = build_index(embeddings)
 
 
-# -------------------------
-# Database startup
-# -------------------------
-
 @app.on_event("startup")
 def startup():
     Base.metadata.create_all(bind=engine)
 
 
-# -------------------------
-# Request Model
-# -------------------------
-
 class ChatRequest(BaseModel):
     session_id: str
     message: str
 
-
-# -------------------------
-# Routes
-# -------------------------
 
 @app.get("/")
 def home():
@@ -64,11 +49,20 @@ def home():
 
 @app.get("/health")
 def health():
-    return {
-        "status": "healthy",
-        "database": "connected",
-        "rag": "loaded"
-    }
+
+    db = SessionLocal()
+
+    try:
+        db.execute(text("SELECT 1"))
+
+        return {
+            "status": "healthy",
+            "database": "connected",
+            "rag": "loaded"
+        }
+
+    finally:
+        db.close()
 
 
 @app.get("/greet/{name}")
@@ -85,22 +79,20 @@ def chat(request: ChatRequest):
 
         context = search(request.message, index, chunks)
 
-        db_messages = (
+        history = (
             db.query(Message)
               .filter(Message.session_id == request.session_id)
               .order_by(Message.created_at)
               .all()
         )
 
-        previous_messages = []
-
-        for message in db_messages:
-            previous_messages.append(
-                {
-                    "role": message.role,
-                    "content": message.content
-                }
-            )
+        previous_messages = [
+            {
+                "role": msg.role,
+                "content": msg.content
+            }
+            for msg in history
+        ]
 
         messages = [
             {
@@ -108,12 +100,12 @@ def chat(request: ChatRequest):
                 "content": f"""
 You are a customer support assistant.
 
-Answer ONLY using the provided company information.
+Answer ONLY using the company information below.
 
-If the answer is not available in the provided context,
-clearly say that you don't have enough information.
+If the answer is not available,
+say you don't have enough information.
 
-Relevant Company Information:
+Company Information:
 
 {context}
 """
@@ -137,11 +129,13 @@ Relevant Company Information:
 
             for chunk in response:
 
-                text = chunk.choices[0].delta.content
+                text_chunk = chunk.choices[0].delta.content
 
-                if text:
-                    assistant_reply += text
-                    yield text
+                if text_chunk:
+
+                    assistant_reply += text_chunk
+
+                    yield text_chunk
 
             db.add(
                 Message(

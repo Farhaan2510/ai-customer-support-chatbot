@@ -22,12 +22,14 @@ def build_index(embeddings):
     dimension = embeddings.shape[1]
 
     index = faiss.IndexFlatL2(dimension)
+
     index.add(np.array(embeddings, dtype="float32"))
 
     return index
 
 
 def search(query, index, chunks):
+
     query_embedding = model.encode([query])
 
     distances, indices = index.search(
@@ -39,6 +41,7 @@ def search(query, index, chunks):
     results = []
 
     for i in indices[0]:
+
         chunk = chunks[i]
 
         if chunk not in seen:
@@ -46,12 +49,3 @@ def search(query, index, chunks):
             results.append(chunk)
 
     return "\n\n".join(results)
-
-
-if __name__ == "__main__":
-    docs = load_documents()
-    chunks = split_into_chunks(docs)
-    embeddings = create_embeddings(chunks)
-    index = build_index(embeddings)
-
-    print(search("Can I return my purchase after a month?", index, chunks))

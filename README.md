@@ -1,59 +1,37 @@
-# AI Customer Support Chatbot
+AI Customer Support Chatbot
 
-Production-style AI Customer Support Chatbot with FastAPI, Groq LLM, FAISS semantic search, PostgreSQL conversation memory, WhatsApp integration, Dockerized deployment, and streaming responses.
+An AI-powered customer support chatbot built using FastAPI, Groq Llama 3.1, Retrieval-Augmented Generation (RAG), FAISS, and PostgreSQL.
 
-## Features
+Features
 
-- REST API with FastAPI
-- Pydantic request validation
-- Groq LLM integration
-- Secure API key management with `.env`
-- Company policy knowledge base (RAG foundation)
+1. AI-powered customer support
 
-## Project Status
+2. Retrieval-Augmented Generation
 
-🚧 Work in Progress
+3. Semantic search using FAISS
 
-Next milestones:
-- Document chunking
-- Embeddings
-- FAISS vector search
-- Full RAG pipeline
-- WhatsApp integration
+4. Conversation memory
 
-## Architecture
+5. PostgreSQL persistence
 
-User
-   ↓
-FastAPI API
-   ↓
-Groq LLM
-   ↓
-Company Knowledge Base
-   ↓
-Response
+6. Streaming AI responses
 
-## Quick Start
+7. REST API with Swagger documentation
 
-```bash
-git clone https://github.com/Farhaan2510/ai-customer-support-chatbot.git
+Tech Stack
 
-cd ai-customer-support-chatbot
+1. Python
 
-python -m venv venv
+2. FastAPI
 
-venv\Scripts\activate
+3. Groq
 
-pip install -r requirements.txt
+4. Sentence Transformers
 
-python -m uvicorn app.main:app --reload
-```
+5. FAISS
 
-## Demo
+6. SQLAlchemy
 
-Open:
+8. PostgreSQL
 
-http://127.0.0.1:8000/docs
-
-Use the `/chat` endpoint to interact with the chatbot.
-
+7. Pydantic
