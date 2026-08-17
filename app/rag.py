@@ -1,21 +1,69 @@
-def load_documents():
+from sentence_transformers import SentenceTransformer
+import faiss
+import numpy as np
 
+# Load the embedding model
+model = SentenceTransformer("all-MiniLM-L6-v2")
+
+
+def load_documents():
     with open("data/company_policy.txt", "r") as file:
         return file.read()
-    
+
+
 def split_into_chunks(text):
-    chunks = text.split("\n\n")
-    return chunks
+    return text.split("\n\n")
 
-if __name__ == "__main__":
-    print(load_documents())
 
+def create_embeddings(chunks):
+    return model.encode(chunks)
+
+
+def build_index(embeddings):
+    dimension = embeddings.shape[1]
+
+    index = faiss.IndexFlatL2(dimension)
+    index.add(np.array(embeddings, dtype="float32"))
+
+    return index
+
+
+def search(query, index, chunks):
+    query_embedding = model.encode([query])
+
+    distances, indices = index.search(
+        np.array(query_embedding, dtype="float32"),
+        k=3
+    )
+
+    seen = set()
+    results = []
+
+    for i in indices[0]:
+        chunk = chunks[i]
+
+        if chunk not in seen:
+            seen.add(chunk)
+            results.append(chunk)
+
+    return "\n\n".join(results)
+
+
+# Test section
 if __name__ == "__main__":
 
     docs = load_documents()
-
     chunks = split_into_chunks(docs)
+    embeddings = create_embeddings(chunks)
+    index = build_index(embeddings)
 
-    for chunk in chunks:
-        print(chunk)
-        print("-----")
+    print("Embedding Shape:", embeddings.shape)
+
+    print("\nRetrieved Context:\n")
+    result = search(
+        "Can I return my purchase after a month?",
+        index,
+        chunks
+    )
+
+    print(result)

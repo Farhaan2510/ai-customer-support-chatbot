@@ -1,6 +1,6 @@
 # AI Customer Support Chatbot
 
-An AI-powered customer support chatbot built with FastAPI and Groq LLM.
+Production-style AI Customer Support Chatbot with FastAPI, Groq LLM, FAISS semantic search, PostgreSQL conversation memory, WhatsApp integration, Dockerized deployment, and streaming responses.
 
 ## Features
 
