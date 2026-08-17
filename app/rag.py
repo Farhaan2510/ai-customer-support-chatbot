@@ -2,12 +2,11 @@ from sentence_transformers import SentenceTransformer
 import faiss
 import numpy as np
 
-# Load the embedding model
 model = SentenceTransformer("all-MiniLM-L6-v2")
 
 
 def load_documents():
-    with open("data/company_policy.txt", "r") as file:
+    with open("data/company_policy.txt", "r", encoding="utf-8") as file:
         return file.read()
 
 
@@ -49,21 +48,10 @@ def search(query, index, chunks):
     return "\n\n".join(results)
 
 
-# Test section
 if __name__ == "__main__":
-
     docs = load_documents()
     chunks = split_into_chunks(docs)
     embeddings = create_embeddings(chunks)
     index = build_index(embeddings)
 
-    print("Embedding Shape:", embeddings.shape)
-
-    print("\nRetrieved Context:\n")
-    result = search(
-        "Can I return my purchase after a month?",
-        index,
-        chunks
-    )
-
-    print(result)
+    print(search("Can I return my purchase after a month?", index, chunks))

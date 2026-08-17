@@ -1,17 +1,20 @@
-from fastapi import FastAPI
-from pydantic import BaseModel
-from dotenv import load_dotenv
-from openai import OpenAI
-
-from app.rag import (
-    load_documents,
-    split_into_chunks,
-    create_embeddings,
-    build_index,
-    search,
-)
-
 import os
+
+from dotenv import load_dotenv
+from fastapi import FastAPI
+from fastapi.responses import StreamingResponse
+from openai import OpenAI
+from pydantic import BaseModel
+
+from app.database import Base, SessionLocal, engine
+from app.models import Message
+from app.rag import (
+    build_index,
+    create_embeddings,
+    load_documents,
+    search,
+    split_into_chunks,
+)
 
 load_dotenv()
 
@@ -22,9 +25,8 @@ client = OpenAI(
 
 app = FastAPI()
 
-
 # -------------------------
-# Startup (Load Once)
+# Load RAG once
 # -------------------------
 
 documents = load_documents()
@@ -34,31 +36,12 @@ index = build_index(embeddings)
 
 
 # -------------------------
-# Conversation Memory
+# Database startup
 # -------------------------
 
-class ConversationManager:
-
-    def __init__(self):
-        self.conversations = {}
-
-    def add_message(self, session_id, role, content):
-
-        if session_id not in self.conversations:
-            self.conversations[session_id] = []
-
-        self.conversations[session_id].append(
-            {
-                "role": role,
-                "content": content
-            }
-        )
-
-    def get_messages(self, session_id):
-        return self.conversations.get(session_id, [])
-
-
-conversation_manager = ConversationManager()
+@app.on_event("startup")
+def startup():
+    Base.metadata.create_all(bind=engine)
 
 
 # -------------------------
@@ -87,64 +70,95 @@ def greet(name: str):
 @app.post("/chat")
 def chat(request: ChatRequest):
 
-    # Retrieve relevant company policy
-    context = search(request.message, index, chunks)
+    db = SessionLocal()
 
-    # Previous conversation
-    previous_messages = conversation_manager.get_messages(
-        request.session_id
-    )
+    try:
 
-    messages = [
-        {
-            "role": "system",
-            "content": f"""
+        context = search(request.message, index, chunks)
+
+        db_messages = (
+            db.query(Message)
+              .filter(Message.session_id == request.session_id)
+              .order_by(Message.created_at)
+              .all()
+        )
+
+        previous_messages = []
+
+        for message in db_messages:
+            previous_messages.append(
+                {
+                    "role": message.role,
+                    "content": message.content
+                }
+            )
+
+        messages = [
+            {
+                "role": "system",
+                "content": f"""
 You are a customer support assistant.
 
-Use ONLY the provided company information.
+Answer ONLY using the provided company information.
 
-If the answer is not present in the provided context, clearly say that the information is not available.
-Do not invent company policies.
+If the answer is not available in the provided context,
+clearly say that you don't have enough information.
 
 Relevant Company Information:
 
 {context}
 """
-        },
-        *previous_messages,
-        {
-            "role": "user",
-            "content": request.message
-        }
-    ]
-
-    try:
+            },
+            *previous_messages,
+            {
+                "role": "user",
+                "content": request.message
+            }
+        ]
 
         response = client.chat.completions.create(
             model="llama-3.1-8b-instant",
-            messages=messages
+            messages=messages,
+            stream=True
         )
 
-        assistant_reply = response.choices[0].message.content
+        def generate_response():
 
-        # Save conversation AFTER generating the reply
-        conversation_manager.add_message(
-            request.session_id,
-            "user",
-            request.message
+            assistant_reply = ""
+
+            for chunk in response:
+
+                text = chunk.choices[0].delta.content
+
+                if text:
+                    assistant_reply += text
+                    yield text
+
+            db.add(
+                Message(
+                    session_id=request.session_id,
+                    role="user",
+                    content=request.message
+                )
+            )
+
+            db.add(
+                Message(
+                    session_id=request.session_id,
+                    role="assistant",
+                    content=assistant_reply
+                )
+            )
+
+            db.commit()
+
+        return StreamingResponse(
+            generate_response(),
+            media_type="text/plain"
         )
-
-        conversation_manager.add_message(
-            request.session_id,
-            "assistant",
-            assistant_reply
-        )
-
-        return {
-            "reply": assistant_reply
-        }
 
     except Exception as e:
-        return {
-            "error": str(e)
-        }
+        return {"error": str(e)}
+
+    finally:
+        db.close()
