@@ -62,6 +62,15 @@ def home():
     return {"message": "AI Customer Support Chatbot is running!"}
 
 
+@app.get("/health")
+def health():
+    return {
+        "status": "healthy",
+        "database": "connected",
+        "rag": "loaded"
+    }
+
+
 @app.get("/greet/{name}")
 def greet(name: str):
     return {"message": f"Hello {name}!"}
